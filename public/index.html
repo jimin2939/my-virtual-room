@@ -341,7 +341,7 @@
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // 배경 이미지 렌더링 (public/miniroom_bg.jpg 기준)
-      const bgImg = getLoadedImage('./miniroom_bg.jpg');
+      const bgImg = getLoadedImage('./싸이월드 미니홈피 배경7.jpg');
       if (bgImg && bgImg.complete && bgImg.naturalWidth !== 0) {
         ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
       } else {
@@ -372,14 +372,28 @@
         ctx.fillText(p.name || '익명', p.x, p.y + 34);
 
         if (p.msg) {
-          ctx.font = '12px sans-serif';
+          ctx.font = 'bold 12px sans-serif';
           const textWidth = ctx.measureText(p.msg).width;
+          const rectX = p.x - textWidth / 2 - 8;
+          const rectY = p.y - 50;
+          const rectW = textWidth + 16;
+          const rectH = 24;
+
+          // 1. 말풍선 흰색 배경
           ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
           ctx.beginPath();
-          ctx.roundRect(p.x - textWidth/2 - 6, p.y - 48, textWidth + 12, 22, 5);
+          ctx.roundRect(rectX, rectY, rectW, rectH, 6);
           ctx.fill();
+
+          // 2. 말풍선 검은색 테두리 (추가된 부분)
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+
+          // 3. 말풍선 텍스트
           ctx.fillStyle = '#000000';
-          ctx.fillText(p.msg, p.x, p.y - 33);
+          ctx.fillText(p.msg, p.x, p.y - 34);
+        }
         }
       }
     }
