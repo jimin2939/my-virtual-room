@@ -42,24 +42,46 @@ function saveChatHistory(history) {
 
 let chatHistory = loadChatHistory();
 
+function getRoomPlayers(roomName) {
+  const roomPlayers = {};
+  for (let id in players) {
+    if (players[id].room === roomName) {
+      roomPlayers[id] = players[id];
+    }
+  }
+  return roomPlayers;
+}
+
 io.on('connection', (socket) => {
   console.log('유저 접속:', socket.id);
 
   players[socket.id] = {
-    x: Math.floor(Math.random() * 700) + 100,
-    y: Math.floor(Math.random() * 400) + 75,
+    x: 400,
+    y: 210,
     name: '익명',
     character: './치이카와.png',
-    msg: ''
+    msg: '',
+    room: '로비',
+    statusMsg: '',
+    bgmUrl: ''
   };
 
-  socket.emit('loadHistory', chatHistory);
-
   socket.on('join', (data) => {
+    const room = data.room || '로비';
+    socket.join(room);
+
     if (players[socket.id]) {
       players[socket.id].name = data.name || '익명';
       players[socket.id].character = data.character || './치이카와.png';
-      io.emit('updatePlayers', players);
+      players[socket.id].room = room;
+      players[socket.id].statusMsg = data.statusMsg || '';
+      players[socket.id].bgmUrl = data.bgmUrl || '';
+
+      // 해당 방의 이전 대화 내역만 필터링하여 전송
+      const roomHistory = chatHistory.filter(item => item.room === room);
+      socket.emit('loadHistory', roomHistory);
+
+      io.to(room).emit('updatePlayers', getRoomPlayers(room));
     }
   });
 
@@ -67,15 +89,15 @@ io.on('connection', (socket) => {
     if (players[socket.id]) {
       players[socket.id].x = data.x;
       players[socket.id].y = data.y;
-      if (data.name && data.name !== '익명') players[socket.id].name = data.name;
-      if (data.character) players[socket.id].character = data.character;
-      io.emit('updatePlayers', players);
+      const room = players[socket.id].room;
+      io.to(room).emit('updatePlayers', getRoomPlayers(room));
     }
   });
 
-  socket.on('chatMessage', (msg) => {
+  socket.on('chatMessage', (data) => {
     if (players[socket.id]) {
-      players[socket.id].msg = msg;
+      const room = players[socket.id].room;
+      players[socket.id].msg = data.msg;
 
       if (playerTimers[socket.id]) {
         clearTimeout(playerTimers[socket.id]);
@@ -84,22 +106,31 @@ io.on('connection', (socket) => {
       playerTimers[socket.id] = setTimeout(() => {
         if (players[socket.id]) {
           players[socket.id].msg = '';
-          io.emit('updatePlayers', players);
+          io.to(room).emit('updatePlayers', getRoomPlayers(room));
         }
       }, 5000);
 
       const chatData = {
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 4), // 고유 ID
         name: players[socket.id].name,
-        msg: msg,
+        msg: data.msg,
+        room: room,
         timestamp: Date.now()
       };
 
       chatHistory.push(chatData);
       chatHistory = saveChatHistory(chatHistory);
 
-      io.emit('newMessage', chatData);
-      io.emit('updatePlayers', players);
+      io.to(room).emit('newMessage', chatData);
+      io.to(room).emit('updatePlayers', getRoomPlayers(room));
     }
+  });
+
+  // 대화 삭제 처리
+  socket.on('deleteChatMessage', (data) => {
+    chatHistory = chatHistory.filter(item => item.id !== data.msgId);
+    saveChatHistory(chatHistory);
+    io.to(data.room).emit('deleteMessage', data.msgId);
   });
 
   socket.on('disconnect', () => {
@@ -107,8 +138,11 @@ io.on('connection', (socket) => {
       clearTimeout(playerTimers[socket.id]);
       delete playerTimers[socket.id];
     }
+    const room = players[socket.id] ? players[socket.id].room : null;
     delete players[socket.id];
-    io.emit('updatePlayers', players);
+    if (room) {
+      io.to(room).emit('updatePlayers', getRoomPlayers(room));
+    }
   });
 });
 

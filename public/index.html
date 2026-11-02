@@ -22,41 +22,56 @@
     
     #chat-container { width: 100%; display: flex; flex-direction: column; gap: 6px; }
     #chat-log { 
-      height: 90px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
+      height: 100px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
       padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 13px; 
     }
-    .chat-item { line-height: 1.3; word-break: break-all; }
+    .chat-item { display: flex; justify-content: space-between; align-items: center; line-height: 1.3; word-break: break-all; }
     .chat-time { font-size: 11px; color: #a0aec0; margin-right: 6px; }
     .chat-name { font-weight: bold; color: #63b3ed; }
-    
+    .delete-btn { color: #e53e3e; cursor: pointer; font-size: 11px; margin-left: 8px; font-weight: bold; border: none; background: none; }
+    .delete-btn:hover { color: #fc8181; }
+
     #chat-box { display: flex; gap: 8px; }
     input[type="text"] { flex: 1; padding: 8px 12px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
     button { padding: 8px 16px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; }
 
-    #login-modal {
+    /* 입장 및 프로필 모달 */
+    .modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100;
     }
     .modal-content {
-      background: #2d3748; padding: 20px; border-radius: 12px; text-align: center; width: 400px; max-width: 90vw;
+      background: #2d3748; padding: 20px; border-radius: 12px; text-align: center; width: 420px; max-width: 90vw;
     }
+    .modal-content input { width: 85%; margin-bottom: 8px; padding: 8px; border-radius: 6px; border: none; }
     .char-container {
-      display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; max-height: 180px; overflow-y: auto; padding: 5px;
+      display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; max-height: 140px; overflow-y: auto; padding: 5px;
     }
     .char-option {
-      width: 55px; height: 55px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
+      width: 50px; height: 50px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
     }
     .char-option.selected { border-color: #4299e1; transform: scale(1.1); }
+    select { padding: 8px; border-radius: 6px; border: none; margin-bottom: 10px; width: 90%; background: #fff; }
   </style>
 </head>
 <body>
 
-  <div id="login-modal">
+  <!-- 입장 모달 -->
+  <div id="login-modal" class="modal">
     <div class="modal-content">
       <h2 style="margin-top:0;">입장하기</h2>
-      <input type="text" id="nicknameInput" placeholder="닉네임을 입력하세요" style="width: 80%; margin-bottom: 10px;" />
+      <input type="text" id="nicknameInput" placeholder="닉네임" />
+      <input type="text" id="statusInput" placeholder="한 줄 상태 메시지 (선택)" />
+      <input type="text" id="bgmInput" placeholder="BGM 음원/유튜브 URL (선택)" />
       
-      <p style="margin-bottom: 5px;">캐릭터 선택</p>
+      <p style="margin: 5px 0 2px;">접속할 방 선택</p>
+      <select id="roomSelect">
+        <option value="로비">🏰 로비</option>
+        <option value="수다방">💬 수다방</option>
+        <option value="음악감상실">🎵 음악감상실</option>
+      </select>
+
+      <p style="margin: 5px 0 2px;">캐릭터 선택</p>
       <div class="char-container">
         <img src="./치이카와.png" class="char-option selected" onclick="selectChar(this, './치이카와.png')" />
         <img src="./하치와레.png" class="char-option" onclick="selectChar(this, './하치와레.png')" />
@@ -69,12 +84,22 @@
         <img src="./메인.jpg" class="char-option" onclick="selectChar(this, './메인.jpg')" />
       </div>
 
-      <button onclick="joinGame()" style="margin-top: 10px; width: 100%;">시작하기</button>
+      <button onclick="joinGame()" style="width: 100%; margin-top: 5px;">시작하기</button>
     </div>
   </div>
 
-  <h2>🎮 2D 가상 모임 공간</h2>
-  <p>이동: 방향키 / WASD | 채팅: Enter 키로 시작/전송 | 취소: ESC</p>
+  <!-- 프로필 보기 모달 -->
+  <div id="profile-modal" class="modal" style="display: none;">
+    <div class="modal-content">
+      <h3 id="profName">유저 프로필</h3>
+      <p id="profStatus" style="color: #63b3ed; font-size: 14px;"></p>
+      <div id="profBgmArea" style="margin: 10px 0;"></div>
+      <button onclick="closeProfile()">닫기</button>
+    </div>
+  </div>
+
+  <h2 id="roomTitle">🎮 2D 가상 공간</h2>
+  <p>이동: 방향키 / WASD | 채팅: Enter 키 | 유저 클릭: 프로필/BGM 보기</p>
 
   <div id="main-wrapper">
     <canvas id="gameCanvas" width="800" height="420"></canvas>
@@ -99,6 +124,7 @@
     let players = {};
     let myPos = { x: 400, y: 210 };
     let myName = '익명';
+    let currentRoom = '로비';
     let selectedImgSrc = './치이카와.png';
     let imageCache = {};
 
@@ -121,10 +147,20 @@
     function joinGame() {
       const inputVal = document.getElementById('nicknameInput').value.trim();
       myName = inputVal !== '' ? inputVal : '익명';
-      
-      socket.emit('join', { name: myName, character: selectedImgSrc });
+      currentRoom = document.getElementById('roomSelect').value;
+      const statusMsg = document.getElementById('statusInput').value.trim();
+      const bgmUrl = document.getElementById('bgmInput').value.trim();
+
+      document.getElementById('roomTitle').innerText = `🎮 2D 가상 공간 - [${currentRoom}]`;
+
+      socket.emit('join', { 
+        name: myName, 
+        character: selectedImgSrc, 
+        room: currentRoom,
+        statusMsg: statusMsg,
+        bgmUrl: bgmUrl
+      });
       document.getElementById('login-modal').style.display = 'none';
-      canvas.focus();
     }
 
     socket.on('loadHistory', (history) => {
@@ -141,11 +177,30 @@
       appendChatMessage(data);
     });
 
+    socket.on('deleteMessage', (msgId) => {
+      const target = document.getElementById(`msg-${msgId}`);
+      if (target) target.remove();
+    });
+
+    function deleteMsg(msgId) {
+      if (confirm('이 대화 내역을 지우시겠습니까?')) {
+        socket.emit('deleteChatMessage', { msgId: msgId, room: currentRoom });
+      }
+    }
+
     function appendChatMessage(data) {
       const item = document.createElement('div');
       item.className = 'chat-item';
+      item.id = `msg-${data.id}`;
       const dateStr = new Date(data.timestamp).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
-      item.innerHTML = `<span class="chat-time">[${dateStr}]</span> <span class="chat-name">${data.name}</span>: ${data.msg}`;
+      
+      item.innerHTML = `
+        <div>
+          <span class="chat-time">[${dateStr}]</span> 
+          <span class="chat-name">${data.name}</span>: ${data.msg}
+        </div>
+        <button class="delete-btn" onclick="deleteMsg('${data.id}')">✕</button>
+      `;
       chatLog.appendChild(item);
       chatLog.scrollTop = chatLog.scrollHeight;
     }
@@ -198,19 +253,59 @@
       }
     }
 
-    // 엔터키 및 ESC 키를 활용한 모드 전환 로직
+    // 캐릭터 클릭 시 이동 및 프로필 팝업 감지
+    canvas.addEventListener('click', (e) => {
+      if (document.getElementById('login-modal').style.display !== 'none') return;
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      const clickX = (e.clientX - rect.left) * scaleX;
+      const clickY = (e.clientY - rect.top) * scaleY;
+
+      // 클릭 위치에 있는 유저 탐색
+      let clickedUser = null;
+      for (let id in players) {
+        const p = players[id];
+        if (Math.hypot(p.x - clickX, p.y - clickY) < 25 && id !== socket.id) {
+          clickedUser = p;
+          break;
+        }
+      }
+
+      if (clickedUser) {
+        showProfile(clickedUser);
+      } else {
+        myPos.x = clickX;
+        myPos.y = clickY;
+        socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc, room: currentRoom });
+      }
+    });
+
+    function showProfile(user) {
+      document.getElementById('profName').innerText = `👤 ${user.name} 님의 프로필`;
+      document.getElementById('profStatus').innerText = user.statusMsg || '설정된 한 줄 소개가 없습니다.';
+      
+      const bgmArea = document.getElementById('profBgmArea');
+      if (user.bgmUrl) {
+        bgmArea.innerHTML = `<a href="${user.bgmUrl}" target="_blank" style="color:#4299e1;">🎵 BGM 듣기 (링크 연결)</a>`;
+      } else {
+        bgmArea.innerHTML = '🎵 등록된 BGM이 없습니다.';
+      }
+      document.getElementById('profile-modal').style.display = 'flex';
+    }
+
+    function closeProfile() {
+      document.getElementById('profile-modal').style.display = 'none';
+    }
+
     window.addEventListener('keydown', (e) => {
-      // 모달창이 열려있으면 동작 안함
       if (document.getElementById('login-modal').style.display !== 'none') return;
 
-      // Enter 키 눌렀을 때
       if (e.key === 'Enter') {
         if (document.activeElement !== msgInput) {
-          // 이동 모드 -> 채팅 모드로 전환 (입력창에 포커스)
           e.preventDefault();
           msgInput.focus();
         } else {
-          // 채팅 모드 -> 메시지 전송 후 이동 모드로 전환 (포커스 해제)
           e.preventDefault();
           sendMsg();
           msgInput.blur();
@@ -218,47 +313,30 @@
         return;
       }
 
-      // ESC 키 눌렀을 때 (채팅 모드 취소)
       if (e.key === 'Escape') {
         msgInput.blur();
+        closeProfile();
         return;
       }
 
-      // 채팅창에 포커스가 없을 때만 캐릭터 이동 가능
       if (document.activeElement !== msgInput) {
         const speed = 10;
         let moved = false;
-
         if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { myPos.y = Math.max(20, myPos.y - speed); moved = true; }
         if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { myPos.y = Math.min(canvas.height - 20, myPos.y + speed); moved = true; }
         if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { myPos.x = Math.max(20, myPos.x - speed); moved = true; }
         if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { myPos.x = Math.min(canvas.width - 20, myPos.x + speed); moved = true; }
 
         if (moved) {
-          socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
+          socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc, room: currentRoom });
         }
       }
-    });
-
-    // 마우스 클릭 이동
-    canvas.addEventListener('click', (e) => {
-      if (document.getElementById('login-modal').style.display !== 'none') return;
-      
-      msgInput.blur(); // 캔버스 클릭 시 입력창 포커스 해제하여 즉시 이동 가능
-      const rect = canvas.getBoundingClientRect();
-      const scaleX = canvas.width / rect.width;
-      const scaleY = canvas.height / rect.height;
-      
-      myPos.x = (e.clientX - rect.left) * scaleX;
-      myPos.y = (e.clientY - rect.top) * scaleY;
-      
-      socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
     });
 
     function sendMsg() {
       const text = msgInput.value.trim();
       if (text) {
-        socket.emit('chatMessage', text);
+        socket.emit('chatMessage', { msg: text, room: currentRoom });
         msgInput.value = '';
       }
     }
