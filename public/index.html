@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>2D 가상 공간 채팅방</title>
+  <style>
+    body { margin: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; color: white; font-family: sans-serif; }
+    canvas { background: #2d3748; border: 3px solid #4a5568; margin-top: 20px; border-radius: 8px; cursor: pointer; }
+    #chat-box { margin-top: 15px; display: flex; gap: 10px; width: 700px; }
+    input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: none; outline: none; font-size: 14px; }
+    button { padding: 10px 20px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; }
+
+    /* 입장 모달 팝업 */
+    #login-modal {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100;
+    }
+    .modal-content {
+      background: #2d3748; padding: 30px; border-radius: 12px; text-align: center; width: 450px; max-width: 90vw;
+    }
+    .char-container {
+      display: flex; 
+      justify-content: center; 
+      flex-wrap: wrap; /* 여러 개일 때 아래 줄로 자동 줄바꿈 */
+      gap: 12px; 
+      margin: 15px 0;
+      max-height: 220px; /* 캐릭터 영역 최대 높이 지정 */
+      overflow-y: auto;  /* 캐릭터가 너무 많으면 내부 스크롤 생성 */
+      padding: 10px;
+    }
+    /* 스크롤바 디자인 예쁘게 정돈 */
+    .char-container::-webkit-scrollbar {
+      width: 6px;
+    }
+    .char-container::-webkit-scrollbar-thumb {
+      background: #4a5568;
+      border-radius: 4px;
+    }
+    .char-option {
+      width: 70px; height: 70px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
+    }
+    .char-option.selected { border-color: #4299e1; transform: scale(1.1); }
+  </style>
+</head>
+<body>
+
+  <!-- 입장 모달 창 -->
+  <div id="login-modal">
+    <div class="modal-content">
+      <h2 style="margin-top:0;">입장하기</h2>
+      <input type="text" id="nicknameInput" placeholder="닉네임을 입력하세요" style="width: 80%; margin-bottom: 15px;" />
+      
+      <p style="margin-bottom: 5px;">캐릭터 선택</p>
+      <div class="char-container">
+        <img src="./치이카와.png" class="char-option selected" onclick="selectChar(this, './치이카와.png')" title="치이카와" />
+        <img src="./우사기.png" class="char-option" onclick="selectChar(this, './우사기.png')" title="우사기" />
+        <img src="./메인.jpg" class="char-option" onclick="selectChar(this, './메인.jpg')" title="메인" />
+        <img src="./rakko.png" class="char-option" onclick="selectChar(this, './rakko.png')" title="rakko" />
+        <img src="./모몬가.png" class="char-option" onclick="selectChar(this, './모몬가.png')" title="모몬가" />
+        <img src="./씨사.png" class="char-option" onclick="selectChar(this, './씨사.png')" title="씨사" />
+        <img src="./카니.png" class="char-option" onclick="selectChar(this, './카니.png')" title="카니" />
+        <img src="./쿠리만쥬.png" class="char-option" onclick="selectChar(this, './쿠리만쥬.png')" title="쿠리만쥬" />
+        <img src="./하치와레.png" class="char-option" onclick="selectChar(this, './하치와레.png')" title="하치와레" />
+      </div>
+
+      <button onclick="joinGame()" style="margin-top: 15px; width: 100%;">시작하기</button>
+    </div>
+  </div>
+
+  <h2>🎮 2D 가상 모임 공간</h2>
+  <p>방향키(WASD / 화살표)로 이동하거나 맵을 클릭하세요!</p>
+  
+  <canvas id="gameCanvas" width="700" height="500"></canvas>
+
+  <div id="chat-box">
+    <input type="text" id="msgInput" placeholder="메시지를 입력하고 Enter를 누르세요..." />
+    <button onclick="sendMsg()">전송</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    const msgInput = document.getElementById('msgInput');
+
+    let players = {};
+    let myPos = { x: 350, y: 250 };
+    let myName = '익명';
+    let selectedImgSrc = './치이카와.png';
+    let imageCache = {};
+
+    function getLoadedImage(src) {
+      if (!imageCache[src]) {
+        const img = new Image();
+        img.src = src;
+        img.onload = () => draw();
+        imageCache[src] = img;
+      }
+      return imageCache[src];
+    }
+
+    function selectChar(element, imgSrc) {
+      document.querySelectorAll('.char-option').forEach(img => img.classList.remove('selected'));
+      element.classList.add('selected');
+      selectedImgSrc = imgSrc;
+    }
+
+    function joinGame() {
+      const inputVal = document.getElementById('nicknameInput').value.trim();
+      myName = inputVal !== '' ? inputVal : '익명';
+      
+      socket.emit('join', { name: myName, character: selectedImgSrc });
+      document.getElementById('login-modal').style.display = 'none';
+    }
+
+    socket.on('updatePlayers', (serverPlayers) => {
+      players = serverPlayers;
+      draw();
+    });
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+      // 배경
+      ctx.fillStyle = '#7c9a63';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // 격자선
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+      for(let x = 0; x < canvas.width; x += 50) {
+        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      }
+      for(let y = 0; y < canvas.height; y += 50) {
+        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
+      }
+
+      // 플레이어 및 닉네임 그리기
+      for (let id in players) {
+        const p = players[id];
+        const img = getLoadedImage(p.character || './치이카와.png');
+
+        // 1. 캐릭터 이미지
+        if (img && img.complete && img.naturalWidth !== 0) {
+          ctx.drawImage(img, p.x - 25, p.y - 25, 50, 50);
+        } else {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+        }
+
+        // 2. 닉네임 표시 (검은 테두리 + 흰 글씨)
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 3;
+        ctx.strokeText(p.name || '익명', p.x, p.y + 42);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.fillText(p.name || '익명', p.x, p.y + 42);
+
+        // 3. 말풍선 표시
+        if (p.msg) {
+          ctx.font = '14px sans-serif';
+          const textWidth = ctx.measureText(p.msg).width;
+          
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+          ctx.beginPath();
+          ctx.roundRect(p.x - textWidth/2 - 8, p.y - 58, textWidth + 16, 26, 6);
+          ctx.fill();
+          
+          ctx.fillStyle = '#000000';
+          ctx.fillText(p.msg, p.x, p.y - 40);
+        }
+      }
+    }
+
+    // 이동 처리
+    window.addEventListener('keydown', (e) => {
+      if (document.activeElement === msgInput || document.getElementById('login-modal').style.display !== 'none') return;
+      
+      const speed = 10;
+      if (e.key === 'ArrowUp' || e.key === 'w') myPos.y -= speed;
+      if (e.key === 'ArrowDown' || e.key === 's') myPos.y += speed;
+      if (e.key === 'ArrowLeft' || e.key === 'a') myPos.x -= speed;
+      if (e.key === 'ArrowRight' || e.key === 'd') myPos.x += speed;
+
+      socket.emit('move', myPos);
+    });
+
+    canvas.addEventListener('click', (e) => {
+      if (document.getElementById('login-modal').style.display !== 'none') return;
+      const rect = canvas.getBoundingClientRect();
+      myPos.x = e.clientX - rect.left;
+      myPos.y = e.clientY - rect.top;
+      socket.emit('move', myPos);
+    });
+
+    // 메시지 전송
+    function sendMsg() {
+      const text = msgInput.value.trim();
+      if (text) {
+        socket.emit('chatMessage', text);
+        msgInput.value = '';
+      }
+    }
+
+    msgInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMsg();
+    });
+  </script>
+</body>
+</html>
