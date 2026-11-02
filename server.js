@@ -14,6 +14,7 @@ const players = {};
 const playerTimers = {};
 const HISTORY_FILE = path.join(__dirname, 'chatHistory.json');
 const GUESTBOOK_FILE = path.join(__dirname, 'guestbookHistory.json');
+const PROFILES_FILE = path.join(__dirname, 'userProfiles.json');
 
 function loadFile(filePath) {
   try {
@@ -24,7 +25,7 @@ function loadFile(filePath) {
   } catch (err) {
     console.error(`파일 로드 에러 (${filePath}):`, err);
   }
-  return [];
+  return filePath.endsWith('userProfiles.json') ? {} : [];
 }
 
 function saveFile(filePath, data) {
@@ -37,8 +38,8 @@ function saveFile(filePath, data) {
 
 let chatHistory = loadFile(HISTORY_FILE);
 let guestbookHistory = loadFile(GUESTBOOK_FILE);
+let userProfiles = loadFile(PROFILES_FILE); // 유저별 프로필 및 테마 보관 DB
 
-// 특정 방 주인(roomOwner)에 속한 플레이어만 추출
 function getRoomPlayers(roomOwner) {
   const roomPlayers = {};
   for (let id in players) {
@@ -49,7 +50,17 @@ function getRoomPlayers(roomOwner) {
   return roomPlayers;
 }
 
-// 현재 접속 중인 미니룸 주인 목록 갱신
+// 방 주인별 테마 맵 생성
+function getRoomThemes() {
+  const roomThemes = {};
+  for (let name in userProfiles) {
+    if (userProfiles[name].theme) {
+      roomThemes[name] = userProfiles[name].theme;
+    }
+  }
+  return roomThemes;
+}
+
 function broadcastActiveOwners() {
   const activeOwners = [...new Set(Object.values(players).map(p => p.name))];
   io.emit('updateActiveRooms', activeOwners);
@@ -69,6 +80,13 @@ io.on('connection', (socket) => {
     bgmUrl: ''
   };
 
+  // 재접속 시 프로필 조회 API
+  socket.on('getProfile', (name) => {
+    if (userProfiles[name]) {
+      socket.emit('profileData', userProfiles[name]);
+    }
+  });
+
   socket.on('join', (data) => {
     const owner = data.roomOwner || data.name || '익명';
     socket.join(`room_${owner}`);
@@ -80,13 +98,25 @@ io.on('connection', (socket) => {
       players[socket.id].statusMsg = data.statusMsg || '';
       players[socket.id].bgmUrl = data.bgmUrl || '';
 
+      // 유저 프로필 영구 저장
+      userProfiles[data.name] = {
+        character: data.character,
+        statusMsg: data.statusMsg,
+        bgmUrl: data.bgmUrl,
+        theme: data.theme || './miniroom_bg.jpg'
+      };
+      saveFile(PROFILES_FILE, userProfiles);
+
       const roomHistory = chatHistory.filter(item => item.roomOwner === owner);
       const roomGb = guestbookHistory.filter(item => item.roomOwner === owner);
       
       socket.emit('loadHistory', roomHistory);
       socket.emit('loadGuestbook', roomGb);
 
-      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+      io.to(`room_${owner}`).emit('updatePlayers', {
+        players: getRoomPlayers(owner),
+        roomThemes: getRoomThemes()
+      });
       broadcastActiveOwners();
     }
   });
@@ -104,14 +134,21 @@ io.on('connection', (socket) => {
       players[socket.id].y = data.y;
       players[socket.id].msg = '';
 
-      io.to(`room_${oldOwner}`).emit('updatePlayers', getRoomPlayers(oldOwner));
+      io.to(`room_${oldOwner}`).emit('updatePlayers', {
+        players: getRoomPlayers(oldOwner),
+        roomThemes: getRoomThemes()
+      });
 
       const roomHistory = chatHistory.filter(item => item.roomOwner === newOwner);
       const roomGb = guestbookHistory.filter(item => item.roomOwner === newOwner);
       
       socket.emit('loadHistory', roomHistory);
       socket.emit('loadGuestbook', roomGb);
-      io.to(`room_${newOwner}`).emit('updatePlayers', getRoomPlayers(newOwner));
+      
+      io.to(`room_${newOwner}`).emit('updatePlayers', {
+        players: getRoomPlayers(newOwner),
+        roomThemes: getRoomThemes()
+      });
     }
   });
 
@@ -120,7 +157,10 @@ io.on('connection', (socket) => {
       players[socket.id].x = data.x;
       players[socket.id].y = data.y;
       const owner = players[socket.id].roomOwner;
-      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+      io.to(`room_${owner}`).emit('updatePlayers', {
+        players: getRoomPlayers(owner),
+        roomThemes: getRoomThemes()
+      });
     }
   });
 
@@ -136,7 +176,10 @@ io.on('connection', (socket) => {
       playerTimers[socket.id] = setTimeout(() => {
         if (players[socket.id]) {
           players[socket.id].msg = '';
-          io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+          io.to(`room_${owner}`).emit('updatePlayers', {
+            players: getRoomPlayers(owner),
+            roomThemes: getRoomThemes()
+          });
         }
       }, 5000);
 
@@ -152,7 +195,10 @@ io.on('connection', (socket) => {
       saveFile(HISTORY_FILE, chatHistory);
 
       io.to(`room_${owner}`).emit('newMessage', chatData);
-      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+      io.to(`room_${owner}`).emit('updatePlayers', {
+        players: getRoomPlayers(owner),
+        roomThemes: getRoomThemes()
+      });
     }
   });
 
@@ -188,7 +234,10 @@ io.on('connection', (socket) => {
     const owner = players[socket.id] ? players[socket.id].roomOwner : null;
     delete players[socket.id];
     if (owner) {
-      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+      io.to(`room_${owner}`).emit('updatePlayers', {
+        players: getRoomPlayers(owner),
+        roomThemes: getRoomThemes()
+      });
     }
     broadcastActiveOwners();
   });
