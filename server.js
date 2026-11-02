@@ -13,43 +13,46 @@ app.use(express.static('public'));
 const players = {};
 const playerTimers = {};
 const HISTORY_FILE = path.join(__dirname, 'chatHistory.json');
+const GUESTBOOK_FILE = path.join(__dirname, 'guestbookHistory.json');
 
-function loadChatHistory() {
+function loadFile(filePath) {
   try {
-    if (fs.existsSync(HISTORY_FILE)) {
-      const data = fs.readFileSync(HISTORY_FILE, 'utf8');
-      const history = JSON.parse(data);
-      const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
-      return history.filter(item => item.timestamp > threeDaysAgo);
+    if (fs.existsSync(filePath)) {
+      const data = fs.readFileSync(filePath, 'utf8');
+      return JSON.parse(data);
     }
   } catch (err) {
-    console.error('대화 내역 로드 에러:', err);
+    console.error(`파일 로드 에러 (${filePath}):`, err);
   }
   return [];
 }
 
-function saveChatHistory(history) {
+function saveFile(filePath, data) {
   try {
-    const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
-    const filtered = history.filter(item => item.timestamp > threeDaysAgo);
-    fs.writeFileSync(HISTORY_FILE, JSON.stringify(filtered, null, 2), 'utf8');
-    return filtered;
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
   } catch (err) {
-    console.error('대화 내역 저장 에러:', err);
-    return history;
+    console.error(`파일 저장 에러 (${filePath}):`, err);
   }
 }
 
-let chatHistory = loadChatHistory();
+let chatHistory = loadFile(HISTORY_FILE);
+let guestbookHistory = loadFile(GUESTBOOK_FILE);
 
-function getRoomPlayers(roomName) {
+// 특정 방 주인(roomOwner)에 속한 플레이어만 추출
+function getRoomPlayers(roomOwner) {
   const roomPlayers = {};
   for (let id in players) {
-    if (players[id].room === roomName) {
+    if (players[id].roomOwner === roomOwner) {
       roomPlayers[id] = players[id];
     }
   }
   return roomPlayers;
+}
+
+// 현재 접속 중인 미니룸 주인 목록 갱신
+function broadcastActiveOwners() {
+  const activeOwners = [...new Set(Object.values(players).map(p => p.name))];
+  io.emit('updateActiveRooms', activeOwners);
 }
 
 io.on('connection', (socket) => {
@@ -57,54 +60,58 @@ io.on('connection', (socket) => {
 
   players[socket.id] = {
     x: 400,
-    y: 210,
+    y: 250,
     name: '익명',
     character: './치이카와.png',
     msg: '',
-    room: '로비',
+    roomOwner: '익명',
     statusMsg: '',
     bgmUrl: ''
   };
 
   socket.on('join', (data) => {
-    const room = data.room || '로비';
-    socket.join(room);
+    const owner = data.roomOwner || data.name || '익명';
+    socket.join(`room_${owner}`);
 
     if (players[socket.id]) {
       players[socket.id].name = data.name || '익명';
       players[socket.id].character = data.character || './치이카와.png';
-      players[socket.id].room = room;
+      players[socket.id].roomOwner = owner;
       players[socket.id].statusMsg = data.statusMsg || '';
       players[socket.id].bgmUrl = data.bgmUrl || '';
 
-      const roomHistory = chatHistory.filter(item => item.room === room);
+      const roomHistory = chatHistory.filter(item => item.roomOwner === owner);
+      const roomGb = guestbookHistory.filter(item => item.roomOwner === owner);
+      
       socket.emit('loadHistory', roomHistory);
+      socket.emit('loadGuestbook', roomGb);
 
-      io.to(room).emit('updatePlayers', getRoomPlayers(room));
+      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+      broadcastActiveOwners();
     }
   });
 
-  // 실시간 방 이동 이벤트 처리
   socket.on('changeRoom', (data) => {
     if (players[socket.id]) {
-      const oldRoom = players[socket.id].room;
-      const newRoom = data.room;
+      const oldOwner = players[socket.id].roomOwner;
+      const newOwner = data.roomOwner;
 
-      socket.leave(oldRoom);
-      socket.join(newRoom);
+      socket.leave(`room_${oldOwner}`);
+      socket.join(`room_${newOwner}`);
 
-      players[socket.id].room = newRoom;
+      players[socket.id].roomOwner = newOwner;
       players[socket.id].x = data.x;
       players[socket.id].y = data.y;
       players[socket.id].msg = '';
 
-      // 이전 방의 유저 목록 갱신
-      io.to(oldRoom).emit('updatePlayers', getRoomPlayers(oldRoom));
+      io.to(`room_${oldOwner}`).emit('updatePlayers', getRoomPlayers(oldOwner));
 
-      // 새로 들어간 방의 이전 대화 내역 및 유저 목록 전송
-      const roomHistory = chatHistory.filter(item => item.room === newRoom);
+      const roomHistory = chatHistory.filter(item => item.roomOwner === newOwner);
+      const roomGb = guestbookHistory.filter(item => item.roomOwner === newOwner);
+      
       socket.emit('loadHistory', roomHistory);
-      io.to(newRoom).emit('updatePlayers', getRoomPlayers(newRoom));
+      socket.emit('loadGuestbook', roomGb);
+      io.to(`room_${newOwner}`).emit('updatePlayers', getRoomPlayers(newOwner));
     }
   });
 
@@ -112,14 +119,14 @@ io.on('connection', (socket) => {
     if (players[socket.id]) {
       players[socket.id].x = data.x;
       players[socket.id].y = data.y;
-      const room = players[socket.id].room;
-      io.to(room).emit('updatePlayers', getRoomPlayers(room));
+      const owner = players[socket.id].roomOwner;
+      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
     }
   });
 
   socket.on('chatMessage', (data) => {
     if (players[socket.id]) {
-      const room = players[socket.id].room;
+      const owner = players[socket.id].roomOwner;
       players[socket.id].msg = data.msg;
 
       if (playerTimers[socket.id]) {
@@ -129,7 +136,7 @@ io.on('connection', (socket) => {
       playerTimers[socket.id] = setTimeout(() => {
         if (players[socket.id]) {
           players[socket.id].msg = '';
-          io.to(room).emit('updatePlayers', getRoomPlayers(room));
+          io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
         }
       }, 5000);
 
@@ -137,22 +144,40 @@ io.on('connection', (socket) => {
         id: Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         name: players[socket.id].name,
         msg: data.msg,
-        room: room,
+        roomOwner: owner,
         timestamp: Date.now()
       };
 
       chatHistory.push(chatData);
-      chatHistory = saveChatHistory(chatHistory);
+      saveFile(HISTORY_FILE, chatHistory);
 
-      io.to(room).emit('newMessage', chatData);
-      io.to(room).emit('updatePlayers', getRoomPlayers(room));
+      io.to(`room_${owner}`).emit('newMessage', chatData);
+      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
+    }
+  });
+
+  socket.on('guestbookMessage', (data) => {
+    if (players[socket.id]) {
+      const owner = players[socket.id].roomOwner;
+      const gbData = {
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+        name: players[socket.id].name,
+        msg: data.msg,
+        roomOwner: owner,
+        timestamp: Date.now()
+      };
+
+      guestbookHistory.push(gbData);
+      saveFile(GUESTBOOK_FILE, guestbookHistory);
+
+      io.to(`room_${owner}`).emit('newGuestbook', gbData);
     }
   });
 
   socket.on('deleteChatMessage', (data) => {
     chatHistory = chatHistory.filter(item => item.id !== data.msgId);
-    saveChatHistory(chatHistory);
-    io.to(data.room).emit('deleteMessage', data.msgId);
+    saveFile(HISTORY_FILE, chatHistory);
+    io.to(`room_${data.roomOwner}`).emit('deleteMessage', data.msgId);
   });
 
   socket.on('disconnect', () => {
@@ -160,11 +185,12 @@ io.on('connection', (socket) => {
       clearTimeout(playerTimers[socket.id]);
       delete playerTimers[socket.id];
     }
-    const room = players[socket.id] ? players[socket.id].room : null;
+    const owner = players[socket.id] ? players[socket.id].roomOwner : null;
     delete players[socket.id];
-    if (room) {
-      io.to(room).emit('updatePlayers', getRoomPlayers(room));
+    if (owner) {
+      io.to(`room_${owner}`).emit('updatePlayers', getRoomPlayers(owner));
     }
+    broadcastActiveOwners();
   });
 });
 
