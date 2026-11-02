@@ -247,21 +247,20 @@
     }
 
     function draw() {
-      // 캔버스 이미지 확대 시 선명도 유지 처리
-      ctx.imageSmoothingEnabled = false;
+      ctx.imageSmoothingEnabled = false; // 픽셀 아트 선명도 유지
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      ctx.fillStyle = '#7c9a63';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      for(let x = 0; x < canvas.width; x += 40) {
-        ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
+      // 1. 통 배경 이미지 그리기 (public/room_bg.png)
+      const bgImg = getLoadedImage(encodeURI('./싸이월드 미니홈피 배경7.jpg'));
+      if (bgImg && bgImg.complete && bgImg.naturalWidth !== 0) {
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+      } else {
+        // 이미지 로딩 중일 때 기본 핑크빛 배경
+        ctx.fillStyle = '#fce7f3';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
-      for(let y = 0; y < canvas.height; y += 40) {
-        ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
-      }
 
+      // 2. 캐릭터 및 닉네임, 말풍선 렌더링
       for (let id in players) {
         const p = players[id];
         const img = getLoadedImage(p.character || './치이카와.png');
