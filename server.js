@@ -77,11 +77,34 @@ io.on('connection', (socket) => {
       players[socket.id].statusMsg = data.statusMsg || '';
       players[socket.id].bgmUrl = data.bgmUrl || '';
 
-      // 해당 방의 이전 대화 내역만 필터링하여 전송
       const roomHistory = chatHistory.filter(item => item.room === room);
       socket.emit('loadHistory', roomHistory);
 
       io.to(room).emit('updatePlayers', getRoomPlayers(room));
+    }
+  });
+
+  // 실시간 방 이동 이벤트 처리
+  socket.on('changeRoom', (data) => {
+    if (players[socket.id]) {
+      const oldRoom = players[socket.id].room;
+      const newRoom = data.room;
+
+      socket.leave(oldRoom);
+      socket.join(newRoom);
+
+      players[socket.id].room = newRoom;
+      players[socket.id].x = data.x;
+      players[socket.id].y = data.y;
+      players[socket.id].msg = '';
+
+      // 이전 방의 유저 목록 갱신
+      io.to(oldRoom).emit('updatePlayers', getRoomPlayers(oldRoom));
+
+      // 새로 들어간 방의 이전 대화 내역 및 유저 목록 전송
+      const roomHistory = chatHistory.filter(item => item.room === newRoom);
+      socket.emit('loadHistory', roomHistory);
+      io.to(newRoom).emit('updatePlayers', getRoomPlayers(newRoom));
     }
   });
 
@@ -111,7 +134,7 @@ io.on('connection', (socket) => {
       }, 5000);
 
       const chatData = {
-        id: Date.now() + '_' + Math.random().toString(36).substr(2, 4), // 고유 ID
+        id: Date.now() + '_' + Math.random().toString(36).substr(2, 4),
         name: players[socket.id].name,
         msg: data.msg,
         room: room,
@@ -126,7 +149,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 대화 삭제 처리
   socket.on('deleteChatMessage', (data) => {
     chatHistory = chatHistory.filter(item => item.id !== data.msgId);
     saveChatHistory(chatHistory);
@@ -148,5 +170,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
+  console.log(`서버 실행 중 (포트: ${PORT})`);
 });

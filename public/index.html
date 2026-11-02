@@ -8,8 +8,14 @@
       margin: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; 
       color: white; font-family: sans-serif; padding: 10px 0; overflow-y: auto;
     }
-    h2 { margin: 2px 0; font-size: 20px; }
+    .header-area { display: flex; align-items: center; gap: 15px; margin: 2px 0; }
+    h2 { margin: 0; font-size: 20px; }
     p { margin: 0 0 6px; font-size: 12px; color: #a0aec0; }
+
+    .room-change-select {
+      padding: 5px 10px; border-radius: 6px; border: 1px solid #4a5568; 
+      background: #2d3748; color: white; font-weight: bold; cursor: pointer; outline: none;
+    }
 
     #main-wrapper {
       width: 800px; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -51,7 +57,7 @@
       width: 50px; height: 50px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
     }
     .char-option.selected { border-color: #4299e1; transform: scale(1.1); }
-    select { padding: 8px; border-radius: 6px; border: none; margin-bottom: 10px; width: 90%; background: #fff; }
+    .modal-select { padding: 8px; border-radius: 6px; border: none; margin-bottom: 10px; width: 90%; background: #fff; }
   </style>
 </head>
 <body>
@@ -65,7 +71,7 @@
       <input type="text" id="bgmInput" placeholder="BGM 음원/유튜브 URL (선택)" />
       
       <p style="margin: 5px 0 2px;">접속할 방 선택</p>
-      <select id="roomSelect">
+      <select id="roomSelect" class="modal-select">
         <option value="로비">🏰 로비</option>
         <option value="수다방">💬 수다방</option>
         <option value="음악감상실">🎵 음악감상실</option>
@@ -98,7 +104,15 @@
     </div>
   </div>
 
-  <h2 id="roomTitle">🎮 2D 가상 공간</h2>
+  <!-- 상단 영역: 실시간 방 이동 드롭다운 -->
+  <div class="header-area">
+    <h2 id="roomTitle">🎮 2D 가상 공간</h2>
+    <select id="headerRoomSelect" class="room-change-select" onchange="changeRoom(this.value)">
+      <option value="로비">🏰 로비로 이동</option>
+      <option value="수다방">💬 수다방으로 이동</option>
+      <option value="음악감상실">🎵 음악감상실로 이동</option>
+    </select>
+  </div>
   <p>이동: 방향키 / WASD | 채팅: Enter 키 | 유저 클릭: 프로필/BGM 보기</p>
 
   <div id="main-wrapper">
@@ -148,6 +162,8 @@
       const inputVal = document.getElementById('nicknameInput').value.trim();
       myName = inputVal !== '' ? inputVal : '익명';
       currentRoom = document.getElementById('roomSelect').value;
+      document.getElementById('headerRoomSelect').value = currentRoom;
+      
       const statusMsg = document.getElementById('statusInput').value.trim();
       const bgmUrl = document.getElementById('bgmInput').value.trim();
 
@@ -161,6 +177,25 @@
         bgmUrl: bgmUrl
       });
       document.getElementById('login-modal').style.display = 'none';
+    }
+
+    // 실시간 방 변경 함수
+    function changeRoom(newRoom) {
+      if (newRoom === currentRoom) return;
+      currentRoom = newRoom;
+      document.getElementById('roomTitle').innerText = `🎮 2D 가상 공간 - [${currentRoom}]`;
+      
+      // 위치 초기화
+      myPos = { x: 400, y: 210 };
+      
+      // 서버로 방 변경 요청
+      socket.emit('changeRoom', {
+        room: currentRoom,
+        name: myName,
+        character: selectedImgSrc,
+        x: myPos.x,
+        y: myPos.y
+      });
     }
 
     socket.on('loadHistory', (history) => {
@@ -253,7 +288,6 @@
       }
     }
 
-    // 캐릭터 클릭 시 이동 및 프로필 팝업 감지
     canvas.addEventListener('click', (e) => {
       if (document.getElementById('login-modal').style.display !== 'none') return;
       const rect = canvas.getBoundingClientRect();
@@ -262,7 +296,6 @@
       const clickX = (e.clientX - rect.left) * scaleX;
       const clickY = (e.clientY - rect.top) * scaleY;
 
-      // 클릭 위치에 있는 유저 탐색
       let clickedUser = null;
       for (let id in players) {
         const p = players[id];
