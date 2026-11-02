@@ -11,18 +11,15 @@
     h2 { margin: 2px 0; font-size: 20px; }
     p { margin: 0 0 6px; font-size: 12px; color: #a0aec0; }
 
-    /* 화면 전체 비율 조절: 너비 800px, 한눈에 들어오는 레이아웃 */
     #main-wrapper {
       width: 800px; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 8px;
     }
     
-    /* 캔버스 세로 높이를 420px로 조절하여 스크롤 방지 */
     canvas { 
       width: 100%; height: auto; background: #2d3748; border: 2px solid #4a5568; 
       border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     
-    /* 채팅 영역 */
     #chat-container { width: 100%; display: flex; flex-direction: column; gap: 6px; }
     #chat-log { 
       height: 90px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
@@ -36,7 +33,6 @@
     input[type="text"] { flex: 1; padding: 8px 12px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
     button { padding: 8px 16px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; }
 
-    /* 입장 모달 팝업 */
     #login-modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100;
@@ -78,16 +74,15 @@
   </div>
 
   <h2>🎮 2D 가상 모임 공간</h2>
-  <p>방향키(WASD / 화살표)로 이동하거나 맵을 클릭하세요!</p>
+  <p>이동: 방향키 / WASD | 채팅: Enter 키로 시작/전송 | 취소: ESC</p>
 
   <div id="main-wrapper">
-    <!-- 모니터에 한눈에 쏙 들어오는 800x420 해상도 설정 -->
     <canvas id="gameCanvas" width="800" height="420"></canvas>
 
     <div id="chat-container">
       <div id="chat-log"></div>
       <div id="chat-box">
-        <input type="text" id="msgInput" placeholder="메시지를 입력하고 Enter를 누르세요..." />
+        <input type="text" id="msgInput" placeholder="Enter 키를 누르면 채팅을 시작할 수 있습니다..." />
         <button onclick="sendMsg()">전송</button>
       </div>
     </div>
@@ -129,6 +124,7 @@
       
       socket.emit('join', { name: myName, character: selectedImgSrc });
       document.getElementById('login-modal').style.display = 'none';
+      canvas.focus();
     }
 
     socket.on('loadHistory', (history) => {
@@ -202,20 +198,53 @@
       }
     }
 
-    // 이동 이벤트 로직 복구
+    // 엔터키 및 ESC 키를 활용한 모드 전환 로직
     window.addEventListener('keydown', (e) => {
-      if (document.activeElement === msgInput || document.getElementById('login-modal').style.display !== 'none') return;
-      const speed = 10;
-      if (e.key === 'ArrowUp' || e.key === 'w') myPos.y = Math.max(20, myPos.y - speed);
-      if (e.key === 'ArrowDown' || e.key === 's') myPos.y = Math.min(canvas.height - 20, myPos.y + speed);
-      if (e.key === 'ArrowLeft' || e.key === 'a') myPos.x = Math.max(20, myPos.x - speed);
-      if (e.key === 'ArrowRight' || e.key === 'd') myPos.x = Math.min(canvas.width - 20, myPos.x + speed);
-      
-      socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
+      // 모달창이 열려있으면 동작 안함
+      if (document.getElementById('login-modal').style.display !== 'none') return;
+
+      // Enter 키 눌렀을 때
+      if (e.key === 'Enter') {
+        if (document.activeElement !== msgInput) {
+          // 이동 모드 -> 채팅 모드로 전환 (입력창에 포커스)
+          e.preventDefault();
+          msgInput.focus();
+        } else {
+          // 채팅 모드 -> 메시지 전송 후 이동 모드로 전환 (포커스 해제)
+          e.preventDefault();
+          sendMsg();
+          msgInput.blur();
+        }
+        return;
+      }
+
+      // ESC 키 눌렀을 때 (채팅 모드 취소)
+      if (e.key === 'Escape') {
+        msgInput.blur();
+        return;
+      }
+
+      // 채팅창에 포커스가 없을 때만 캐릭터 이동 가능
+      if (document.activeElement !== msgInput) {
+        const speed = 10;
+        let moved = false;
+
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') { myPos.y = Math.max(20, myPos.y - speed); moved = true; }
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') { myPos.y = Math.min(canvas.height - 20, myPos.y + speed); moved = true; }
+        if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') { myPos.x = Math.max(20, myPos.x - speed); moved = true; }
+        if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') { myPos.x = Math.min(canvas.width - 20, myPos.x + speed); moved = true; }
+
+        if (moved) {
+          socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
+        }
+      }
     });
 
+    // 마우스 클릭 이동
     canvas.addEventListener('click', (e) => {
       if (document.getElementById('login-modal').style.display !== 'none') return;
+      
+      msgInput.blur(); // 캔버스 클릭 시 입력창 포커스 해제하여 즉시 이동 가능
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
@@ -233,10 +262,6 @@
         msgInput.value = '';
       }
     }
-
-    msgInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter') sendMsg();
-    });
   </script>
 </body>
 </html>
