@@ -72,7 +72,7 @@
     .modal-content {
       background: #3b2b1d; border: 2px solid #8b5a2b; padding: 20px; border-radius: 12px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
-    .modal-content input { width: 100%; margin-bottom: 8px; padding: 10px; border-radius: 6px; border: none; font-size: 14px; }
+    .modal-content input { width: 100%; margin-bottom: 8px; padding: 10px; border-radius: 6px; border: none; font-size: 14px; color: #000; }
     .char-container {
       display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; max-height: 140px; overflow-y: auto; padding: 5px;
     }
@@ -87,7 +87,7 @@
   <!-- 입장 모달 -->
   <div id="login-modal" class="modal">
     <div class="modal-content">
-      <h2 style="margin-top:0; color:#f6ad55;">🏠 내 미니홈피만들기</h2>
+      <h2 style="margin-top:0; color:#f6ad55;">🏠 내 미니홈피 만들기</h2>
       <input type="text" id="nicknameInput" placeholder="내 닉네임 입력" />
       <input type="text" id="statusInput" placeholder="Today is... (한 줄 상태 메세지)" />
       <input type="text" id="bgmInput" placeholder="BGM 링크 URL (선택)" />
@@ -207,7 +207,7 @@
     function joinGame() {
       const inputVal = document.getElementById('nicknameInput').value.trim();
       myName = inputVal !== '' ? inputVal : '익명';
-      currentRoomOwner = myName; // 내 미니룸으로 최초 접속
+      currentRoomOwner = myName;
       
       const statusMsg = document.getElementById('statusInput').value.trim();
       const bgmUrl = document.getElementById('bgmInput').value.trim();
@@ -224,7 +224,6 @@
       document.getElementById('login-modal').style.display = 'none';
     }
 
-    // 특정 유저 미니룸 방문
     function visitRoom(targetOwner) {
       if (!targetOwner || targetOwner === currentRoomOwner) return;
       currentRoomOwner = targetOwner;
@@ -240,12 +239,10 @@
       });
     }
 
-    // 내 방으로 돌아가기
     function goMyRoom() {
       visitRoom(myName);
     }
 
-    // 🌊 파도타기 (랜덤 미니룸 방문)
     function randomWave() {
       const otherOwners = allActiveOwners.filter(owner => owner !== currentRoomOwner);
       if (otherOwners.length === 0) {
@@ -340,7 +337,7 @@
       ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // 배경 이미지 렌더링 (public/miniroom_bg.jpg 기준)
+      // 배경 이미지 렌더링
       const bgImg = getLoadedImage('./싸이월드 미니홈피 배경7.jpg');
       if (bgImg && bgImg.complete && bgImg.naturalWidth !== 0) {
         ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
@@ -371,6 +368,7 @@
         ctx.fillStyle = '#ffffff';
         ctx.fillText(p.name || '익명', p.x, p.y + 34);
 
+        // 검은색 테두리가 강조된 말풍선
         if (p.msg) {
           ctx.font = 'bold 12px sans-serif';
           const textWidth = ctx.measureText(p.msg).width;
@@ -385,7 +383,7 @@
           ctx.roundRect(rectX, rectY, rectW, rectH, 6);
           ctx.fill();
 
-          // 2. 말풍선 검은색 테두리 (추가된 부분)
+          // 2. 말풍선 검은색 테두리
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = 2;
           ctx.stroke();
@@ -393,7 +391,6 @@
           // 3. 말풍선 텍스트
           ctx.fillStyle = '#000000';
           ctx.fillText(p.msg, p.x, p.y - 34);
-        }
         }
       }
     }
