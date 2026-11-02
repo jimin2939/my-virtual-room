@@ -6,34 +6,35 @@
   <style>
     body { 
       margin: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; 
-      color: white; font-family: sans-serif; padding: 15px 0 30px; 
+      color: white; font-family: sans-serif; padding: 10px 0; overflow-y: auto;
     }
-    h2 { margin: 5px 0; font-size: 22px; }
-    p { margin: 0 0 10px; font-size: 13px; color: #a0aec0; }
+    h2 { margin: 2px 0; font-size: 20px; }
+    p { margin: 0 0 6px; font-size: 12px; color: #a0aec0; }
 
-    /* 화면 비율 조절: 최대 너비 900px, 16:9 반응형 느낌 */
+    /* 화면 전체 비율 조절: 너비 800px, 한눈에 들어오는 레이아웃 */
     #main-wrapper {
-      width: 900px; max-width: 92vw; display: flex; flex-direction: column; align-items: center; gap: 10px;
+      width: 800px; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 8px;
     }
     
+    /* 캔버스 세로 높이를 420px로 조절하여 스크롤 방지 */
     canvas { 
-      width: 100%; height: auto; background: #2d3748; border: 3px solid #4a5568; 
-      border-radius: 8px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      width: 100%; height: auto; background: #2d3748; border: 2px solid #4a5568; 
+      border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
     }
     
     /* 채팅 영역 */
-    #chat-container { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+    #chat-container { width: 100%; display: flex; flex-direction: column; gap: 6px; }
     #chat-log { 
-      height: 110px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
-      padding: 10px; overflow-y: auto; display: flex; flex-direction: column; gap: 5px; font-size: 13px; 
+      height: 90px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
+      padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 13px; 
     }
     .chat-item { line-height: 1.3; word-break: break-all; }
     .chat-time { font-size: 11px; color: #a0aec0; margin-right: 6px; }
     .chat-name { font-weight: bold; color: #63b3ed; }
     
     #chat-box { display: flex; gap: 8px; }
-    input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: none; outline: none; font-size: 14px; }
-    button { padding: 10px 18px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; }
+    input[type="text"] { flex: 1; padding: 8px 12px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
+    button { padding: 8px 16px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; }
 
     /* 입장 모달 팝업 */
     #login-modal {
@@ -41,13 +42,13 @@
       background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100;
     }
     .modal-content {
-      background: #2d3748; padding: 25px; border-radius: 12px; text-align: center; width: 420px; max-width: 90vw;
+      background: #2d3748; padding: 20px; border-radius: 12px; text-align: center; width: 400px; max-width: 90vw;
     }
     .char-container {
-      display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; margin: 15px 0; max-height: 200px; overflow-y: auto; padding: 5px;
+      display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 12px 0; max-height: 180px; overflow-y: auto; padding: 5px;
     }
     .char-option {
-      width: 60px; height: 60px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
+      width: 55px; height: 55px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
     }
     .char-option.selected { border-color: #4299e1; transform: scale(1.1); }
   </style>
@@ -57,7 +58,7 @@
   <div id="login-modal">
     <div class="modal-content">
       <h2 style="margin-top:0;">입장하기</h2>
-      <input type="text" id="nicknameInput" placeholder="닉네임을 입력하세요" style="width: 80%; margin-bottom: 15px;" />
+      <input type="text" id="nicknameInput" placeholder="닉네임을 입력하세요" style="width: 80%; margin-bottom: 10px;" />
       
       <p style="margin-bottom: 5px;">캐릭터 선택</p>
       <div class="char-container">
@@ -67,7 +68,7 @@
         <img src="./모몬가.png" class="char-option" onclick="selectChar(this, './모몬가.png')" />
         <img src="./쿠리만쥬.png" class="char-option" onclick="selectChar(this, './쿠리만쥬.png')" />
         <img src="./씨사.png" class="char-option" onclick="selectChar(this, './씨사.png')" />
-        <img src="./rakko.png" class="char-option" onclick="selectChar(this, './rakko.png')" />
+        <img src="./락코.png" class="char-option" onclick="selectChar(this, './락코.png')" />
         <img src="./카니.png" class="char-option" onclick="selectChar(this, './카니.png')" />
         <img src="./메인.jpg" class="char-option" onclick="selectChar(this, './메인.jpg')" />
       </div>
@@ -80,8 +81,8 @@
   <p>방향키(WASD / 화살표)로 이동하거나 맵을 클릭하세요!</p>
 
   <div id="main-wrapper">
-    <!-- 가로세로 비율을 한눈에 들어오는 900x550으로 조정 -->
-    <canvas id="gameCanvas" width="900" height="550"></canvas>
+    <!-- 모니터에 한눈에 쏙 들어오는 800x420 해상도 설정 -->
+    <canvas id="gameCanvas" width="800" height="420"></canvas>
 
     <div id="chat-container">
       <div id="chat-log"></div>
@@ -101,8 +102,8 @@
     const chatLog = document.getElementById('chat-log');
 
     let players = {};
-    let myPos = { x: 450, y: 275 };
-    let myName = '익명'; // 전역 변수 유지
+    let myPos = { x: 400, y: 210 };
+    let myName = '익명';
     let selectedImgSrc = './치이카와.png';
     let imageCache = {};
 
@@ -124,7 +125,7 @@
 
     function joinGame() {
       const inputVal = document.getElementById('nicknameInput').value.trim();
-      myName = inputVal !== '' ? inputVal : '익명'; // 내 닉네임 변수 세팅
+      myName = inputVal !== '' ? inputVal : '익명';
       
       socket.emit('join', { name: myName, character: selectedImgSrc });
       document.getElementById('login-modal').style.display = 'none';
@@ -160,10 +161,10 @@
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-      for(let x = 0; x < canvas.width; x += 50) {
+      for(let x = 0; x < canvas.width; x += 40) {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, canvas.height); ctx.stroke();
       }
-      for(let y = 0; y < canvas.height; y += 50) {
+      for(let y = 0; y < canvas.height; y += 40) {
         ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(canvas.width, y); ctx.stroke();
       }
 
@@ -172,43 +173,43 @@
         const img = getLoadedImage(p.character || './치이카와.png');
 
         if (img && img.complete && img.naturalWidth !== 0) {
-          ctx.drawImage(img, p.x - 22, p.y - 22, 44, 44);
+          ctx.drawImage(img, p.x - 20, p.y - 20, 40, 40);
         } else {
           ctx.beginPath();
-          ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
+          ctx.arc(p.x, p.y, 18, 0, Math.PI * 2);
           ctx.fillStyle = '#ffffff';
           ctx.fill();
         }
 
-        ctx.font = 'bold 13px sans-serif';
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.strokeStyle = '#000000';
         ctx.lineWidth = 3;
-        ctx.strokeText(p.name || '익명', p.x, p.y + 38);
+        ctx.strokeText(p.name || '익명', p.x, p.y + 34);
         ctx.fillStyle = '#ffffff';
-        ctx.fillText(p.name || '익명', p.x, p.y + 38);
+        ctx.fillText(p.name || '익명', p.x, p.y + 34);
 
         if (p.msg) {
-          ctx.font = '13px sans-serif';
+          ctx.font = '12px sans-serif';
           const textWidth = ctx.measureText(p.msg).width;
           ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
           ctx.beginPath();
-          ctx.roundRect(p.x - textWidth/2 - 8, p.y - 54, textWidth + 16, 24, 6);
+          ctx.roundRect(p.x - textWidth/2 - 6, p.y - 48, textWidth + 12, 22, 5);
           ctx.fill();
           ctx.fillStyle = '#000000';
-          ctx.fillText(p.msg, p.x, p.y - 38);
+          ctx.fillText(p.msg, p.x, p.y - 33);
         }
       }
     }
 
-    // 이동 시 name과 character 정보 무조건 함께 전송
+    // 이동 이벤트 로직 복구
     window.addEventListener('keydown', (e) => {
       if (document.activeElement === msgInput || document.getElementById('login-modal').style.display !== 'none') return;
-      const speed = 12;
-      if (e.key === 'ArrowUp' || e.key === 'w') myPos.y = Math.max(22, myPos.y - speed);
-      if (e.key === 'ArrowDown' || e.key === 's') myPos.y = Math.min(canvas.height - 22, myPos.y + speed);
-      if (e.key === 'ArrowLeft' || e.key === 'a') myPos.x = Math.max(22, myPos.x - speed);
-      if (e.key === 'ArrowRight' || e.key === 'd') myPos.x = Math.min(canvas.width - 22, myPos.x + speed);
+      const speed = 10;
+      if (e.key === 'ArrowUp' || e.key === 'w') myPos.y = Math.max(20, myPos.y - speed);
+      if (e.key === 'ArrowDown' || e.key === 's') myPos.y = Math.min(canvas.height - 20, myPos.y + speed);
+      if (e.key === 'ArrowLeft' || e.key === 'a') myPos.x = Math.max(20, myPos.x - speed);
+      if (e.key === 'ArrowRight' || e.key === 'd') myPos.x = Math.min(canvas.width - 20, myPos.x + speed);
       
       socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
     });
@@ -216,8 +217,6 @@
     canvas.addEventListener('click', (e) => {
       if (document.getElementById('login-modal').style.display !== 'none') return;
       const rect = canvas.getBoundingClientRect();
-      
-      // CSS 비율 계산을 통한 정확한 클릭 위치 보정
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
       
