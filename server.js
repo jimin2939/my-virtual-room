@@ -14,7 +14,6 @@ const players = {};
 const playerTimers = {};
 const HISTORY_FILE = path.join(__dirname, 'chatHistory.json');
 
-// 대화 내역 불러오기 (3일 이내)
 function loadChatHistory() {
   try {
     if (fs.existsSync(HISTORY_FILE)) {
@@ -29,7 +28,6 @@ function loadChatHistory() {
   return [];
 }
 
-// 대화 내역 저장하기
 function saveChatHistory(history) {
   try {
     const threeDaysAgo = Date.now() - (3 * 24 * 60 * 60 * 1000);
@@ -48,8 +46,8 @@ io.on('connection', (socket) => {
   console.log('유저 접속:', socket.id);
 
   players[socket.id] = {
-    x: Math.floor(Math.random() * 1000) + 100,
-    y: Math.floor(Math.random() * 600) + 100,
+    x: Math.floor(Math.random() * 700) + 100,
+    y: Math.floor(Math.random() * 400) + 75,
     name: '익명',
     character: './치이카와.png',
     msg: ''
@@ -57,7 +55,6 @@ io.on('connection', (socket) => {
 
   socket.emit('loadHistory', chatHistory);
 
-  // 입장 시 정보 등록 및 저장
   socket.on('join', (data) => {
     if (players[socket.id]) {
       players[socket.id].name = data.name || '익명';
@@ -66,20 +63,16 @@ io.on('connection', (socket) => {
     }
   });
 
-  // 이동 시 기존 name과 character 정보 보존
   socket.on('move', (data) => {
     if (players[socket.id]) {
       players[socket.id].x = data.x;
       players[socket.id].y = data.y;
-      // data에 name이나 character가 있으면 갱신, 없으면 기존값 유지
-      if (data.name) players[socket.id].name = data.name;
+      if (data.name && data.name !== '익명') players[socket.id].name = data.name;
       if (data.character) players[socket.id].character = data.character;
-      
       io.emit('updatePlayers', players);
     }
   });
 
-  // 채팅 시 5초 후 말풍선 지우기 (닉네임/캐릭터는 절대 지우지 않음)
   socket.on('chatMessage', (msg) => {
     if (players[socket.id]) {
       players[socket.id].msg = msg;
@@ -88,7 +81,6 @@ io.on('connection', (socket) => {
         clearTimeout(playerTimers[socket.id]);
       }
 
-      // 5초 뒤 말풍선 메시지만 빈값으로 변경
       playerTimers[socket.id] = setTimeout(() => {
         if (players[socket.id]) {
           players[socket.id].msg = '';
@@ -122,5 +114,5 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => {
-  console.log(`서버 실행 중 (포트: ${PORT})`);
+  console.log(`서버가 포트 ${PORT}에서 실행 중입니다.`);
 });
