@@ -2,62 +2,72 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
+  <!-- 모바일 뷰포트 화면 비율 자동 맞춤 태그 추가 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>2D 가상 공간 채팅방</title>
   <style>
+    * { box-sizing: border-box; }
     body { 
       margin: 0; background: #1a1a1a; display: flex; flex-direction: column; align-items: center; 
-      color: white; font-family: sans-serif; padding: 10px 0; overflow-y: auto;
+      color: white; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+      padding: 10px; min-height: 100vh;
     }
-    .header-area { display: flex; align-items: center; gap: 15px; margin: 2px 0; }
-    h2 { margin: 0; font-size: 20px; }
-    p { margin: 0 0 6px; font-size: 12px; color: #a0aec0; }
+    
+    .header-area { 
+      display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px; margin-bottom: 4px; width: 100%; max-width: 800px;
+    }
+    h2 { margin: 0; font-size: 18px; text-align: center; }
+    p { margin: 0 0 8px; font-size: 11px; color: #a0aec0; text-align: center; }
 
     .room-change-select {
-      padding: 5px 10px; border-radius: 6px; border: 1px solid #4a5568; 
-      background: #2d3748; color: white; font-weight: bold; cursor: pointer; outline: none;
+      padding: 6px 10px; border-radius: 6px; border: 1px solid #4a5568; 
+      background: #2d3748; color: white; font-size: 13px; font-weight: bold; cursor: pointer; outline: none;
     }
 
     #main-wrapper {
-      width: 800px; max-width: 95vw; display: flex; flex-direction: column; align-items: center; gap: 8px;
+      width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; gap: 8px;
     }
     
+    /* 캔버스 이미지 확대 시 픽셀이 깨지지 않고 뚜렷하게 보이도록 내장 옵션 처리 */
     canvas { 
       width: 100%; height: auto; background: #2d3748; border: 2px solid #4a5568; 
       border-radius: 8px; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+      image-rendering: -webkit-optimize-contrast;
+      image-rendering: crisp-edges;
+      image-rendering: pixelated;
     }
     
     #chat-container { width: 100%; display: flex; flex-direction: column; gap: 6px; }
     #chat-log { 
-      height: 100px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
+      height: 110px; background: #2d3748; border: 1px solid #4a5568; border-radius: 6px; 
       padding: 8px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px; font-size: 13px; 
     }
     .chat-item { display: flex; justify-content: space-between; align-items: center; line-height: 1.3; word-break: break-all; }
-    .chat-time { font-size: 11px; color: #a0aec0; margin-right: 6px; }
+    .chat-time { font-size: 10px; color: #a0aec0; margin-right: 4px; }
     .chat-name { font-weight: bold; color: #63b3ed; }
-    .delete-btn { color: #e53e3e; cursor: pointer; font-size: 11px; margin-left: 8px; font-weight: bold; border: none; background: none; }
-    .delete-btn:hover { color: #fc8181; }
+    .delete-btn { color: #e53e3e; cursor: pointer; font-size: 12px; margin-left: 8px; font-weight: bold; border: none; background: none; padding: 2px 6px; }
 
-    #chat-box { display: flex; gap: 8px; }
-    input[type="text"] { flex: 1; padding: 8px 12px; border-radius: 6px; border: none; outline: none; font-size: 13px; }
-    button { padding: 8px 16px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; }
+    #chat-box { display: flex; gap: 6px; width: 100%; }
+    input[type="text"] { flex: 1; padding: 10px; border-radius: 6px; border: none; outline: none; font-size: 14px; background: #ffffff; color: #000; }
+    button { padding: 10px 16px; border-radius: 6px; border: none; background: #4299e1; color: white; cursor: pointer; font-weight: bold; font-size: 14px; white-space: nowrap; }
 
-    /* 입장 및 프로필 모달 */
+    /* 모달 팝업 반응형 최적화 */
     .modal {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100;
+      background: rgba(0, 0, 0, 0.85); display: flex; justify-content: center; align-items: center; z-index: 100; padding: 15px;
     }
     .modal-content {
-      background: #2d3748; padding: 20px; border-radius: 12px; text-align: center; width: 420px; max-width: 90vw;
+      background: #2d3748; padding: 20px; border-radius: 12px; text-align: center; width: 100%; max-width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5);
     }
-    .modal-content input { width: 85%; margin-bottom: 8px; padding: 8px; border-radius: 6px; border: none; }
+    .modal-content input { width: 100%; margin-bottom: 8px; padding: 10px; border-radius: 6px; border: none; font-size: 14px; }
     .char-container {
       display: flex; justify-content: center; flex-wrap: wrap; gap: 8px; margin: 10px 0; max-height: 140px; overflow-y: auto; padding: 5px;
     }
     .char-option {
-      width: 50px; height: 50px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
+      width: 48px; height: 48px; border-radius: 50%; border: 3px solid transparent; cursor: pointer; object-fit: cover; background: #fff;
     }
     .char-option.selected { border-color: #4299e1; transform: scale(1.1); }
-    .modal-select { padding: 8px; border-radius: 6px; border: none; margin-bottom: 10px; width: 90%; background: #fff; }
+    .modal-select { padding: 10px; border-radius: 6px; border: none; margin-bottom: 10px; width: 100%; background: #fff; font-size: 14px; }
   </style>
 </head>
 <body>
@@ -70,14 +80,14 @@
       <input type="text" id="statusInput" placeholder="한 줄 상태 메시지 (선택)" />
       <input type="text" id="bgmInput" placeholder="BGM 음원/유튜브 URL (선택)" />
       
-      <p style="margin: 5px 0 2px;">접속할 방 선택</p>
+      <p style="margin: 8px 0 2px;">접속할 방 선택</p>
       <select id="roomSelect" class="modal-select">
         <option value="로비">🏰 로비</option>
         <option value="수다방">💬 수다방</option>
         <option value="음악감상실">🎵 음악감상실</option>
       </select>
 
-      <p style="margin: 5px 0 2px;">캐릭터 선택</p>
+      <p style="margin: 8px 0 2px;">캐릭터 선택</p>
       <div class="char-container">
         <img src="./치이카와.png" class="char-option selected" onclick="selectChar(this, './치이카와.png')" />
         <img src="./하치와레.png" class="char-option" onclick="selectChar(this, './하치와레.png')" />
@@ -90,7 +100,7 @@
         <img src="./메인.jpg" class="char-option" onclick="selectChar(this, './메인.jpg')" />
       </div>
 
-      <button onclick="joinGame()" style="width: 100%; margin-top: 5px;">시작하기</button>
+      <button onclick="joinGame()" style="width: 100%; margin-top: 8px;">시작하기</button>
     </div>
   </div>
 
@@ -100,11 +110,10 @@
       <h3 id="profName">유저 프로필</h3>
       <p id="profStatus" style="color: #63b3ed; font-size: 14px;"></p>
       <div id="profBgmArea" style="margin: 10px 0;"></div>
-      <button onclick="closeProfile()">닫기</button>
+      <button onclick="closeProfile()" style="width: 100%;">닫기</button>
     </div>
   </div>
 
-  <!-- 상단 영역: 실시간 방 이동 드롭다운 -->
   <div class="header-area">
     <h2 id="roomTitle">🎮 2D 가상 공간</h2>
     <select id="headerRoomSelect" class="room-change-select" onchange="changeRoom(this.value)">
@@ -113,7 +122,7 @@
       <option value="음악감상실">🎵 음악감상실로 이동</option>
     </select>
   </div>
-  <p>이동: 방향키 / WASD | 채팅: Enter 키 | 유저 클릭: 프로필/BGM 보기</p>
+  <p>터치/클릭: 이동 및 프로필 보기 | PC: 방향키 & Enter 키</p>
 
   <div id="main-wrapper">
     <canvas id="gameCanvas" width="800" height="420"></canvas>
@@ -121,7 +130,7 @@
     <div id="chat-container">
       <div id="chat-log"></div>
       <div id="chat-box">
-        <input type="text" id="msgInput" placeholder="Enter 키를 누르면 채팅을 시작할 수 있습니다..." />
+        <input type="text" id="msgInput" placeholder="메시지를 입력하세요..." />
         <button onclick="sendMsg()">전송</button>
       </div>
     </div>
@@ -179,16 +188,13 @@
       document.getElementById('login-modal').style.display = 'none';
     }
 
-    // 실시간 방 변경 함수
     function changeRoom(newRoom) {
       if (newRoom === currentRoom) return;
       currentRoom = newRoom;
       document.getElementById('roomTitle').innerText = `🎮 2D 가상 공간 - [${currentRoom}]`;
       
-      // 위치 초기화
       myPos = { x: 400, y: 210 };
       
-      // 서버로 방 변경 요청
       socket.emit('changeRoom', {
         room: currentRoom,
         name: myName,
@@ -241,6 +247,8 @@
     }
 
     function draw() {
+      // 캔버스 이미지 확대 시 선명도 유지 처리
+      ctx.imageSmoothingEnabled = false;
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       ctx.fillStyle = '#7c9a63';
@@ -288,18 +296,24 @@
       }
     }
 
-    canvas.addEventListener('click', (e) => {
+    // 마우스 클릭 및 터치 이동 처리
+    function handleCanvasInteraction(e) {
       if (document.getElementById('login-modal').style.display !== 'none') return;
+      
       const rect = canvas.getBoundingClientRect();
       const scaleX = canvas.width / rect.width;
       const scaleY = canvas.height / rect.height;
-      const clickX = (e.clientX - rect.left) * scaleX;
-      const clickY = (e.clientY - rect.top) * scaleY;
+      
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      
+      const clickX = (clientX - rect.left) * scaleX;
+      const clickY = (clientY - rect.top) * scaleY;
 
       let clickedUser = null;
       for (let id in players) {
         const p = players[id];
-        if (Math.hypot(p.x - clickX, p.y - clickY) < 25 && id !== socket.id) {
+        if (Math.hypot(p.x - clickX, p.y - clickY) < 28 && id !== socket.id) {
           clickedUser = p;
           break;
         }
@@ -312,7 +326,9 @@
         myPos.y = clickY;
         socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc, room: currentRoom });
       }
-    });
+    }
+
+    canvas.addEventListener('click', handleCanvasInteraction);
 
     function showProfile(user) {
       document.getElementById('profName').innerText = `👤 ${user.name} 님의 프로필`;
@@ -373,6 +389,10 @@
         msgInput.value = '';
       }
     }
+
+    msgInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') sendMsg();
+    });
   </script>
 </body>
 </html>
