@@ -186,6 +186,7 @@
       }
     }
 
+    // 키보드 이동
     window.addEventListener('keydown', (e) => {
       if (document.activeElement === msgInput || document.getElementById('login-modal').style.display !== 'none') return;
       const speed = 12;
@@ -193,15 +194,18 @@
       if (e.key === 'ArrowDown' || e.key === 's') myPos.y = Math.min(canvas.height - 25, myPos.y + speed);
       if (e.key === 'ArrowLeft' || e.key === 'a') myPos.x = Math.max(25, myPos.x - speed);
       if (e.key === 'ArrowRight' || e.key === 'd') myPos.x = Math.min(canvas.width - 25, myPos.x + speed);
-      socket.emit('move', myPos);
+      
+      socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
     });
 
+    // 마우스 클릭 이동
     canvas.addEventListener('click', (e) => {
       if (document.getElementById('login-modal').style.display !== 'none') return;
       const rect = canvas.getBoundingClientRect();
       myPos.x = e.clientX - rect.left;
       myPos.y = e.clientY - rect.top;
-      socket.emit('move', myPos);
+      
+      socket.emit('move', { x: myPos.x, y: myPos.y, name: myName, character: selectedImgSrc });
     });
 
     function sendMsg() {
